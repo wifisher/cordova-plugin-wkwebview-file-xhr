@@ -129,11 +129,22 @@ NS_ASSUME_NONNULL_BEGIN
  */
 -(NSURL*)getWebContentResourceURL: (NSString*) uri
 {
+    //NSLog(@"[FileXHR] getWebContentResourceURL(): %@", uri);
+
     NSURL *targetURL = nil;
 
     if ([uri hasPrefix: @"file://"] || [uri hasPrefix: @"FILE://"])
     {
         targetURL = [NSURL URLWithString:uri];
+
+        if(targetURL == nil) {
+            // WF: Check for spaces in the URI. App names might have spaces which need to be converted to % encoding.
+            if([uri containsString:@" "] && ![uri containsString:@"%"]) {
+                NSString *encUri = [uri stringByReplacingOccurrencesOfString:@" " withString:@"%20"];
+
+                targetURL = [NSURL URLWithString:encUri];
+            }
+        }
     }
     else
     {
@@ -154,10 +165,15 @@ NS_ASSUME_NONNULL_BEGIN
  */
 -(BOOL)isWebContentResourceSecure: (NSURL*) targetURL
 {
+    //NSLog(@"[FileXHR] isWebContentResourceSecure()");
+
     NSURL *baseURL = [NSURL URLWithString:@"www" relativeToURL:[[NSBundle mainBundle] resourceURL]];
     NSString *basePath = [baseURL absoluteString];
     NSString *targetPath = [[targetURL standardizedURL] absoluteString];
-    
+
+    //NSLog(@"[FileXHR]    basePath: %@", basePath);
+    //NSLog(@"[FileXHR]    targetPath: %@", targetPath);
+
     return [targetPath hasPrefix:basePath] ||
            [targetPath hasPrefix:[[NSURL fileURLWithPath:
                                    [NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, NSUserDomainMask, YES) objectAtIndex:0]]  absoluteString]];
@@ -169,6 +185,8 @@ NS_ASSUME_NONNULL_BEGIN
  */
 - (void)readAsText:(CDVInvokedUrlCommand*)command
 {
+    //NSLog(@"[FileXHR] readAsText()");
+
     NSString *uri = [command.arguments.firstObject isKindOfClass: NSString.class] ? command.arguments.firstObject : nil;
     if (uri.length == 0) {
         // this catches nil value or empty string
@@ -176,15 +194,15 @@ NS_ASSUME_NONNULL_BEGIN
         return;
     }
 
+    //NSLog(@"[FileXHR]   URI: %@", uri);
+
     NSURL *targetURL = [self getWebContentResourceURL:uri];
     
     if (![self isWebContentResourceSecure:targetURL]) {
-        
         CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ILLEGAL_ACCESS_EXCEPTION messageAsInt:404];
         [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
         
     } else {
-        
         __weak CDVWKWebViewFileXhr* weakSelf = self;
         [self.commandDelegate runInBackground:^ {
             
@@ -216,6 +234,8 @@ NS_ASSUME_NONNULL_BEGIN
  */
 - (void)readAsArrayBuffer:(CDVInvokedUrlCommand*)command
 {
+    //NSLog(@"[FileXHR] readAsArrayBuffer()");
+
     NSString *uri = [command.arguments.firstObject isKindOfClass: NSString.class] ? command.arguments.firstObject : nil;
     if (uri.length == 0) {
         // this catches nil value or empty string
@@ -250,6 +270,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)getConfig:(CDVInvokedUrlCommand*)command {
     
+    //NSLog(@"[FileXHR] getConfig()");
+
     NSDictionary *dict = @{
                            @"InterceptRemoteRequests" : _interceptRemoteRequests,
                            @"NativeXHRLogging" : _nativeXHRLogging
@@ -306,6 +328,8 @@ NS_ASSUME_NONNULL_BEGIN
     
     __weak WKWebView* weakWebView = webView;
     
+    //NSLog(@"[FileXHR] performNativeXHR()");
+
     void(^sendResult)(NSDictionary *) = ^void(NSDictionary *result) {
         dispatch_async(dispatch_get_main_queue(), ^{
             
